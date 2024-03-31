@@ -12,4 +12,10 @@ def process_agent_data(
     Returns:
         processed_data_batch (ProcessedAgentData): Processed data containing the classified state of the road surface and agent data.
     """
-    # Implement it
+    x_value = agent_data.accelerometer.x
+    if -3000 <= x_value <= 3000:
+        road_state = "adequate"
+    else:
+        road_state = "requires maintenence"
+    return ProcessedAgentData(road_state=road_state,
+                              agent_data=agent_data)

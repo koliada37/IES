@@ -36,18 +36,24 @@ store_adapter = StoreApiAdapter(api_base_url=STORE_API_BASE_URL)
 app = FastAPI()
 
 
-@app.post("/processed_agent_data/")
+@app.post("/processed_agent_data")
 async def save_processed_agent_data(processed_agent_data: ProcessedAgentData):
-    redis_client.lpush("processed_agent_data", processed_agent_data.model_dump_json())
-    if redis_client.llen("processed_agent_data") >= BATCH_SIZE:
+    logging.info("\nGOT INTO save_processed_agent_data")
+    json_procesesd_agent_data = processed_agent_data.json()
+    redis_client.lpush("processed_agent_data", json_procesesd_agent_data)
+    queue_len = redis_client.llen("processed_agent_data")
+    logging.info(f"Current queue length: {queue_len}")
+    logging.info(f"BATCH_SIZE: {BATCH_SIZE}")
+    if queue_len >= BATCH_SIZE:
         processed_agent_data_batch: List[ProcessedAgentData] = []
         for _ in range(BATCH_SIZE):
-            processed_agent_data = ProcessedAgentData.model_validate_json(
-                redis_client.lpop("processed_agent_data")
-            )
+            json_str = redis_client.lpop("processed_agent_data").decode("utf-8")
+            processed_agent_data = ProcessedAgentData.parse_raw(json_str)
             processed_agent_data_batch.append(processed_agent_data)
-        print(processed_agent_data_batch)
-        store_adapter.save_data(processed_agent_data_batch=processed_agent_data_batch)
+        json_procesesd_agent_data_batch = [data.json() for data in processed_agent_data_batch]
+        logging.info(json_procesesd_agent_data_batch)
+        store_adapter.save_data(processed_agent_data_batch=json_procesesd_agent_data_batch)
+    print()
     return {"status": "ok"}
 
 
